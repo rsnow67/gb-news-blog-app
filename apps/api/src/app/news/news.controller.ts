@@ -13,6 +13,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CommentsService } from './comments/comments.service';
 import { CreateNewsDto } from './dto/create-news-dto';
@@ -74,6 +75,7 @@ export class NewsController {
     private readonly mailService: MailService
   ) {}
 
+  @UseInterceptors(CacheInterceptor)
   @Get('all')
   @ApiOperation({ summary: 'Get all news' })
   @ApiOkResponse({
@@ -86,6 +88,7 @@ export class NewsController {
     return await this.newsService.findAll();
   }
 
+  @UseInterceptors(CacheInterceptor)
   @Get('all/:userId')
   @ApiOperation({
     summary: 'Return a list of news based on a particular user id',
@@ -100,6 +103,7 @@ export class NewsController {
     return await this.newsService.findAllByAuthor(userId);
   }
 
+  @UseInterceptors(CacheInterceptor)
   @Get(':id')
   @ApiOperation({ summary: 'Get the news by id' })
   @ApiOkResponse({
