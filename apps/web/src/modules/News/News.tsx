@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { API, API_STATIC } from '../../app/constants';
+import { useContext } from 'react';
+import { NewsContext } from '../../app/app';
+import { API_STATIC } from '../../app/constants';
 import MainLayout from '../../app/MainLayout/MainLayout';
 
-export interface News {
+export interface NewsEntity {
   id: string;
   cover: string;
   title: string;
@@ -15,24 +16,7 @@ export interface User {
 }
 
 const News = () => {
-  const [news, setNews] = useState([] as News[]);
-
-  useEffect(() => {
-    const url = `${API}/news/all`;
-
-    const fetchData = async (): Promise<void> => {
-      try {
-        const response = await fetch(url);
-        const json: News[] = await response.json();
-
-        setNews(json);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const news = useContext(NewsContext);
 
   return (
     <MainLayout>
