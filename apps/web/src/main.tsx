@@ -1,7 +1,8 @@
 import { StrictMode } from 'react';
 import * as ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-
+import 'bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import App from './app/app';
 
 const root = ReactDOM.createRoot(
