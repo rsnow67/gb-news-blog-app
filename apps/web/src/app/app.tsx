@@ -1,54 +1,35 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import styles from './app.module.scss';
+import { createContext, useEffect, useState } from 'react';
+import { Route, Routes, Navigate } from 'react-router-dom';
+import { API } from './constants';
+import CreateNews from '../modules/CreateNews/CreateNews';
+import Login from '../modules/Login/Login';
+import News, { NewsEntity } from '../modules/News/News';
 
-import NxWelcome from './nx-welcome';
-
-import { Route, Routes, Link } from 'react-router-dom';
+export const NewsContext = createContext([] as NewsEntity[]);
 
 export function App() {
+  const [news, setNews] = useState([] as NewsEntity[]);
+
+  useEffect(() => {
+    fetch(`${API}/news/all`)
+      .then((response) => response.json())
+      .then((news) => setNews(news));
+  }, []);
+
   return (
-    <>
-      <NxWelcome title="web" />
-
-      <div />
-
-      {/* START: routes */}
-      {/* These routes and navigation have been generated for you */}
-      {/* Feel free to move and update them to fit your needs */}
-      <br />
-      <hr />
-      <br />
-      <div role="navigation">
-        <ul>
-          <li>
-            <Link to="/">Home</Link>
-          </li>
-          <li>
-            <Link to="/page-2">Page 2</Link>
-          </li>
-        </ul>
-      </div>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <div>
-              This is the generated root route.{' '}
-              <Link to="/page-2">Click here for page 2.</Link>
-            </div>
-          }
-        />
-        <Route
-          path="/page-2"
-          element={
-            <div>
-              <Link to="/">Click here to go back to root page.</Link>
-            </div>
-          }
-        />
-      </Routes>
-      {/* END: routes */}
-    </>
+    <Routes>
+      <Route path="/" element={<Navigate to="news" />} />
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/news"
+        element={
+          <NewsContext.Provider value={news}>
+            <News />
+          </NewsContext.Provider>
+        }
+      />
+      <Route path="/news/create" element={<CreateNews />} />
+    </Routes>
   );
 }
 

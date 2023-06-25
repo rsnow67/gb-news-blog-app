@@ -4,6 +4,7 @@
 dist
 tmp
 /out-tsc
+/apps/api/public/*
 
 # dependencies
 node_modules
