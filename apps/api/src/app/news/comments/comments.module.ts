@@ -1,22 +1,24 @@
-import { AuthModule } from './../../auth/auth.module';
-import { SocketCommentsGateway } from './sockets-comments.gateway';
 import { forwardRef, Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
+import { AuthModule } from './../../auth/auth.module';
 import { UsersModule } from '../../users/users.module';
 import { NewsModule } from '../news.module';
 import { CommentsController } from './comments.controller';
-import { CommentsEntity } from './comments.entity';
 import { CommentsService } from './comments.service';
+import { Comments, CommentsSchema } from './schemas/comments.schema';
+import { SocketCommentsGateway } from './sockets-comments.gateway';
 
 @Module({
   controllers: [CommentsController],
   providers: [CommentsService, SocketCommentsGateway],
-  exports: [CommentsService],
   imports: [
-    TypeOrmModule.forFeature([CommentsEntity]),
+    MongooseModule.forFeature([
+      { name: Comments.name, schema: CommentsSchema },
+    ]),
     forwardRef(() => NewsModule),
     UsersModule,
     AuthModule,
   ],
+  exports: [CommentsService],
 })
 export class CommentsModule {}

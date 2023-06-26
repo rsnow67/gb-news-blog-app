@@ -1,46 +1,50 @@
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { CommentsEntity } from './comments.entity';
-import { Repository } from 'typeorm';
-import { NewsService } from '../news.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersService } from '../../users/users.service';
-import {
-  checkPermission,
-  Modules,
-} from '../../auth/roles/utils/check-permission';
+// import {
+//   checkPermission,
+//   Modules,
+// } from '../../auth/roles/utils/check-permission';
+import { NewsService } from '../news.service';
+import { UpdateCommentDto } from './dto/update-comment-dto';
+import { Comments, CommentsDocument } from './schemas/comments.schema';
 
 @Injectable()
 export class CommentsService {
   constructor(
-    @InjectRepository(CommentsEntity)
-    private commentsRepository: Repository<CommentsEntity>,
+    @InjectModel(Comments.name) private commentsModel: Model<CommentsDocument>,
     private newsService: NewsService,
     private usersService: UsersService,
     private eventEmitter: EventEmitter2
   ) {}
 
-  async findAll(newsId: number): Promise<CommentsEntity[]> {
-    return this.commentsRepository.find({
-      where: {
-        news: {
-          id: newsId,
-        },
-      },
-      relations: ['user', 'news'],
-      order: {
-        createdAt: 'ASC',
-      },
+  async create(
+    newsId: string,
+    message: string,
+    userId: string
+  ): Promise<CommentsDocument> {
+    const comment = new this.commentsModel({
+      text: message,
+      newsId,
+      userId,
     });
+
+    return comment.save();
   }
 
-  async findOne(id: number): Promise<CommentsEntity> {
-    const comment = await this.commentsRepository.findOne({
-      where: {
-        id,
-      },
-      relations: ['user', 'news'],
-    });
+  async findAll(newsId: string): Promise<CommentsDocument[]> {
+    return this.commentsModel
+      .find({ newsId })
+      .populate(['user', 'news'])
+      .sort({ createdAt: +1 });
+  }
+
+  async findOne(id: string): Promise<CommentsDocument> {
+    const comment = await this.commentsModel
+      .findById(id)
+      .populate(['user', 'news']);
 
     if (!comment) {
       throw new HttpException(
@@ -48,75 +52,77 @@ export class CommentsService {
           status: HttpStatus.NOT_FOUND,
           error: 'The comment is not found.',
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.NOT_FOUND
       );
     }
 
     return comment;
   }
 
-  async create(
-    newsId: number,
-    message: string,
-    userId: number,
-  ): Promise<CommentsEntity> {
-    const news = await this.newsService.findOne(newsId);
-    const user = await this.usersService.findById(userId);
-    const comment = {
-      text: message,
-      news,
-      user,
-    };
+  async update(
+    id: string,
+    updateCommentDto: UpdateCommentDto
+  ): Promise<CommentsDocument> {
+    const comment = await this.commentsModel.findByIdAndUpdate(
+      id,
+      updateCommentDto,
+      { new: true }
+    );
 
-    return this.commentsRepository.save(comment);
+    if (!comment) {
+      throw new HttpException(
+        {
+          status: HttpStatus.NOT_FOUND,
+          error: 'The comment is not found.',
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
+
+    return comment;
   }
 
-  async update(id: number, text: string): Promise<CommentsEntity> {
-    const comment = await this.findOne(id);
-    const updatedComment = {
-      ...comment,
-      text,
-    };
+  async removeAll(newsId: string): Promise<string> {
+    const { deletedCount } = await this.commentsModel.deleteMany({ newsId });
 
-    this.commentsRepository.save(updatedComment);
-
-    this.eventEmitter.emit('comment.update', { updatedComment });
-
-    return updatedComment;
-  }
-
-  async removeAll(newsId: number): Promise<string> {
-    const comments = await this.findAll(newsId);
-
-    this.commentsRepository.remove(comments);
+    if (deletedCount === 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.NOT_FOUND,
+          error: 'The comments are not found.',
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
 
     return 'The comments have been removed.';
   }
 
-  async remove(id: number, userId: number): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async remove(id: string, userId: string): Promise<string> {
     const comment = await this.findOne(id);
-    const user = await this.usersService.findById(userId);
+    // const user = await this.usersService.findById(userId);
 
-    if (
-      user.id !== comment.user.id &&
-      !checkPermission(Modules.removeComment, user.roles)
-    ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.FORBIDDEN,
-          error: 'You do not have sufficient rights to delete.',
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
+    // if (
+    //   user.id !== comment.user._id &&
+    //   !checkPermission(Modules.removeComment, user.roles)
+    // ) {
+    //   throw new HttpException(
+    //     {
+    //       status: HttpStatus.FORBIDDEN,
+    //       error: 'You do not have sufficient rights to delete.',
+    //     },
+    //     HttpStatus.FORBIDDEN,
+    //   );
+    // }
 
-    this.commentsRepository.remove(comment);
+    await this.commentsModel.deleteOne({ id });
 
     this.eventEmitter.emit('comment.remove', {
       commentId: id,
-      newsId: comment.news.id,
+      newsId: comment.newsId,
     });
 
-    return 'The comments has been removed.';
+    return 'The comment has been removed.';
   }
 }

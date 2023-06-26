@@ -12,7 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { WsJwtGuard } from '../../auth/ws-jwt.guard';
 import { CommentsService } from './comments.service';
 
-export type Comment = { text: string; newsId: number };
+export type Comment = { text: string; newsId: string };
 
 @WebSocketGateway()
 export class SocketCommentsGateway
@@ -27,7 +27,7 @@ export class SocketCommentsGateway
   @SubscribeMessage('addComment')
   async handleMessage(client: Socket, comment: Comment) {
     const { newsId, text } = comment;
-    const userId: number = client.data.user.id;
+    const userId: string = client.data.user.id;
     const _comment = await this.commentsService.create(newsId, text, userId);
 
     this.server.to(newsId.toString()).emit('newComment', _comment);
@@ -58,7 +58,7 @@ export class SocketCommentsGateway
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   async handleConnection(client: Socket, ...args: any[]) {
     const { newsId } = client.handshake.query;
     client.join(newsId);

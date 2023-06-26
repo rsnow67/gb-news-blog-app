@@ -1,76 +1,80 @@
-import { checkPermission } from './../auth/roles/utils/check-permission';
 import { HttpException, Injectable, HttpStatus } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { checkPermission } from './../auth/roles/utils/check-permission';
 import { Modules } from '../auth/roles/utils/check-permission';
 import { hash } from '../utils/crypto';
-import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user-dto';
 import UpdateUserDto from './dto/update-user-dto';
-import { UsersEntity } from './users.entity';
+import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectRepository(UsersEntity)
-    private usersRepository: Repository<UsersEntity>,
-  ) {}
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async findAll(): Promise<UsersEntity[]> {
-    return this.usersRepository.find({});
-  }
-
-  async findById(id: number): Promise<UsersEntity> {
-    const user = await this.usersRepository.findOneBy({ id });
-
-    if (!user) {
-      throw new HttpException(
-        {
-          status: HttpStatus.NOT_FOUND,
-          error: 'The user is not found.',
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    return user;
-  }
-
-  async findByEmail(email: string): Promise<UsersEntity> {
-    const user = await this.usersRepository.findOneBy({ email });
-
-    if (!user) {
-      throw new HttpException(
-        {
-          status: HttpStatus.NOT_FOUND,
-          error: 'The user is not found.',
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    return user;
-  }
-
-  async create(createUserDto: CreateUserDto): Promise<Partial<UsersEntity>> {
+  async create(createUserDto: CreateUserDto): Promise<Partial<UserDocument>> {
     const passwordHash = await hash(createUserDto.password);
 
-    const user = {
+    const newUser = new this.userModel({
       ...createUserDto,
       password: passwordHash,
-    };
+    });
 
-    this.usersRepository.save(user);
+    await newUser.save();
 
-    const { password, ...result } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithOutPassword } = newUser.toObject();
 
-    return result;
+    return userWithOutPassword;
+  }
+
+  async findAll(): Promise<UserDocument[]> {
+    const users = await this.userModel
+      .find({})
+      .populate(['news', 'comments'])
+      .sort({ createdAt: +1 });
+
+    return users;
+  }
+
+  async findById(id: string): Promise<UserDocument> {
+    const user = await this.userModel
+      .findById(id)
+      .populate(['news', 'comments']);
+
+    if (!user) {
+      throw new HttpException(
+        {
+          status: HttpStatus.NOT_FOUND,
+          error: 'The user is not found.',
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
+
+    return user;
+  }
+
+  async findByEmail(email: string): Promise<UserDocument> {
+    const user = await this.userModel.findOne({ email }).select('+password');
+
+    if (!user) {
+      throw new HttpException(
+        {
+          status: HttpStatus.NOT_FOUND,
+          error: 'The user is not found.',
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
+
+    return user;
   }
 
   async update(
-    id: number,
-    updateUserDto: UpdateUserDto,
-  ): Promise<Partial<UsersEntity>> {
-    const user = await this.findById(id);
+    id: string,
+    updateUserDto: UpdateUserDto
+  ): Promise<Partial<UserDocument>> {
     const data = { ...updateUserDto };
 
     if (data.password) {
@@ -81,22 +85,38 @@ export class UsersService {
       delete data.roles;
     }
 
-    const updatedUser = {
-      ...user,
-      ...data,
-    };
+    const user = await this.userModel.findByIdAndUpdate(id, data, {
+      new: true,
+    });
 
-    this.usersRepository.save(updatedUser);
+    if (!user) {
+      throw new HttpException(
+        {
+          status: HttpStatus.NOT_FOUND,
+          error: 'The user is not found.',
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
 
-    const { password, ...result } = updatedUser;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithOutPassword } = user;
 
-    return result;
+    return userWithOutPassword;
   }
 
-  async remove(id: number): Promise<string> {
-    const user = await this.findById(id);
+  async remove(id: string): Promise<string> {
+    const user = await this.userModel.findByIdAndDelete(id);
 
-    this.usersRepository.remove(user);
+    if (!user) {
+      throw new HttpException(
+        {
+          status: HttpStatus.NOT_FOUND,
+          error: 'The user is not found.',
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
 
     return `The user ${user.nickName} has been removed.`;
   }
