@@ -111,5 +111,9 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "~4.9.5",
     "url-loader": "^4.1.1"
+  },
+  "optionalDependencies": {
+    "@nrwl/nx-linux-x64-musl": "^15.8.5",
+    "@nrwl/nx-linux-x64-gnu": "^15.9.3"
   }
 }

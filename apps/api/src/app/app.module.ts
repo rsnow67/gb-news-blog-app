@@ -11,9 +11,10 @@ import { AppService } from './app.service';
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
-    MongooseModule.forRoot('mongodb://localhost:27017', {
-      dbName: 'gb-news-app',
-    }),
+    // MongooseModule.forRoot('mongodb://localhost:27017', {
+    //   dbName: 'gb-news-app',
+    // }),
+    MongooseModule.forRoot(process.env.MONGODB_URL),
     NewsModule,
     MailModule,
     UsersModule,
