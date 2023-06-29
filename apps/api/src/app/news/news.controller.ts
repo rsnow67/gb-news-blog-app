@@ -11,7 +11,6 @@ import {
   // UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { CacheInterceptor } from '@nestjs/cache-manager';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiCreatedResponse,
@@ -114,7 +113,6 @@ export class NewsController {
     return newNews;
   }
 
-  @UseInterceptors(CacheInterceptor)
   @Get('all')
   @ApiOperation({ summary: 'Get all news' })
   @ApiOkResponse({
@@ -127,22 +125,20 @@ export class NewsController {
     return await this.newsService.findAll();
   }
 
-  // @UseInterceptors(CacheInterceptor)
-  // @Get('all/:userId')
-  // @ApiOperation({
-  //   summary: 'Return a list of news based on a particular user id',
-  // })
-  // @ApiOkResponse({
-  //   description: `Return a list of all user's news`,
-  //   type: News,
-  //   isArray: true,
-  // })
-  // @ApiNotFoundResponse({ description: 'Not found.' })
-  // async getAllUserNews(@Param('userId', ParseIntPipe) userId: number) {
-  //   return await this.newsService.findAllByAuthor(userId);
-  // }
+  @Get('all/:userId')
+  @ApiOperation({
+    summary: 'Return a list of news based on a particular user id',
+  })
+  @ApiOkResponse({
+    description: `Return a list of all user's news`,
+    type: News,
+    isArray: true,
+  })
+  @ApiNotFoundResponse({ description: 'Not found.' })
+  async getAllUserNews(@Param('userId') userId: string) {
+    return await this.newsService.findAllByAuthor(userId);
+  }
 
-  @UseInterceptors(CacheInterceptor)
   @Get(':id')
   @ApiOperation({ summary: 'Get the news by id' })
   @ApiOkResponse({

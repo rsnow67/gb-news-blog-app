@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { UsersService } from '../users/users.service';
+import { RedisService } from '../redis/redis.service';
 import { CreateNewsDto } from './dto/create-news-dto';
 import { UpdateNewsDto } from './dto/update-news-dto';
 import { News, NewsDocument } from './schemas/news.schema';
@@ -10,7 +10,7 @@ import { News, NewsDocument } from './schemas/news.schema';
 export class NewsService {
   constructor(
     @InjectModel(News.name) private newsModel: Model<NewsDocument>,
-    private usersService: UsersService
+    private cacheManager: RedisService
   ) {}
 
   async create(
@@ -22,28 +22,56 @@ export class NewsService {
       userId: userId,
     });
 
-    return newNews.save();
+    const savedNews = newNews.save();
+
+    this.cacheManager.del('newsAll');
+
+    return savedNews;
   }
 
-  findAll(): Promise<NewsDocument[]> {
-    return this.newsModel
+  async findAll() {
+    const cachedNews = await this.cacheManager.get<NewsDocument[]>('newsAll');
+
+    if (cachedNews) {
+      return cachedNews;
+    }
+
+    const news = await this.newsModel
       .find({})
       .populate(['user', 'comments'])
       .sort({ createdAt: +1 });
+
+    await this.cacheManager.set<NewsDocument[]>('newsAll', news, 10);
+
+    return news;
   }
 
-  // findAllByAuthor(userId: number): Promise<NewsDocument[]> {
-  //   return this.newsRepository.find({
-  //     where: {
-  //       user: {
-  //         id: userId,
-  //       },
-  //     },
-  //     relations: ['user', 'comments', 'comments.user'],
-  //   });
-  // }
+  async findAllByAuthor(userId: string): Promise<NewsDocument[]> {
+    const cachedUserNews = await this.cacheManager.get<NewsDocument[]>(
+      `${userId}-news`
+    );
+
+    if (cachedUserNews) {
+      return cachedUserNews;
+    }
+
+    const userNews = await this.newsModel
+      .find({ userId })
+      .populate(['user', 'comments'])
+      .sort({ createdAt: +1 });
+
+    await this.cacheManager.set<NewsDocument[]>(`${userId}-news`, userNews, 10);
+
+    return userNews;
+  }
 
   async findOne(id: string): Promise<NewsDocument> {
+    const cachedData = await this.cacheManager.get<NewsDocument>(id);
+
+    if (cachedData) {
+      return cachedData;
+    }
+
     const news = await this.newsModel
       .findById(id)
       .populate(['user', 'comments']);
@@ -57,6 +85,8 @@ export class NewsService {
         HttpStatus.NOT_FOUND
       );
     }
+
+    await this.cacheManager.set<NewsDocument>(id, news, 10);
 
     return news;
   }
@@ -79,6 +109,8 @@ export class NewsService {
       );
     }
 
+    await this.cacheManager.del(id);
+
     return news;
   }
 
@@ -94,6 +126,8 @@ export class NewsService {
         HttpStatus.NOT_FOUND
       );
     }
+
+    await this.cacheManager.del(id);
 
     return 'The news has been removed.';
   }
